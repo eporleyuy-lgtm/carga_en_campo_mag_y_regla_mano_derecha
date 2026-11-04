@@ -236,12 +236,10 @@ window.addEventListener('load', function() {
   // =========================================================
   const IMG_ENTRANTE = "mano_palma.png";    
   const IMG_SALIENTE = "mano_saliente.png"; 
-  const IMG_DORSO = "mano_dorso.png"; 
 
-  const ROT_ENTRANTE_POS = 180; 
-  const ROT_ENTRANTE_NEG = 180; // <--- ACÁ ESTÁ EL CAMBIO: Giramos 180 grados
-  const ROT_SALIENTE_POS = 0;   
-  const ROT_SALIENTE_NEG = 0;   
+  // La rotación solo depende de la foto, no de la carga.
+  const ROT_ENTRANTE = 180; 
+  const ROT_SALIENTE = 0;   
   // =========================================================
 
   const S = {
@@ -466,23 +464,14 @@ window.addEventListener('load', function() {
     const isPositive = S.sign > 0;
     const isBInto = S.fieldDir === -1;
     
+    // 1. LA IMAGEN DEPENDE SOLO DEL CAMPO
     let imgSrc, offset;
-
-    if (isBInto && isPositive) {
-      imgSrc = IMG_ENTRANTE;
-      offset = ROT_ENTRANTE_POS;
-    } 
-    else if (isBInto && !isPositive) {
-      imgSrc = IMG_DORSO;
-      offset = ROT_ENTRANTE_NEG;
-    } 
-    else if (!isBInto && isPositive) {
-      imgSrc = IMG_SALIENTE;
-      offset = ROT_SALIENTE_POS;
-    } 
-    else {
-      imgSrc = IMG_DORSO;
-      offset = ROT_SALIENTE_NEG;
+    if (isBInto) {
+      imgSrc = IMG_ENTRANTE; // Los dedos entran a la página
+      offset = ROT_ENTRANTE;
+    } else {
+      imgSrc = IMG_SALIENTE; // Los dedos salen de la página
+      offset = ROT_SALIENTE;
     }
 
     if (img && img.getAttribute('data-src') !== imgSrc) {
@@ -490,6 +479,7 @@ window.addEventListener('load', function() {
       img.setAttribute('data-src', imgSrc);
     }
 
+    // 2. EL TEXTO DEPENDE SOLO DE LA CARGA
     if (label) {
       if (isPositive) {
         label.textContent = 'La F sale de la PALMA';
@@ -500,6 +490,7 @@ window.addEventListener('load', function() {
       }
     }
 
+    // 3. ROTACIÓN (El pulgar sigue a la velocidad)
     if (img) {
       const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
       img.style.transform = `rotate(${vAngle + offset}deg)`;
