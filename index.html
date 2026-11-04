@@ -232,15 +232,20 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // Nombres de tus archivos
+  // NOMBRES DE ARCHIVOS Y AJUSTES DE ROTACIÓN
   // =========================================================
-  const URL_MANO_PALMA = "mano_palma.png"; 
-  const URL_MANO_DORSO = "mano_dorso.png"; 
+  const IMG_ENTRANTE = "mano_palma.png";   // Imagen cuando el campo es (X) - Palma
+  const IMG_SALIENTE = "mano_saliente.png"; // Imagen cuando el campo es (·) - Dorso/Palma nueva
+  
+  // Si las fotos no coinciden exactamente con el vector v, ajustá estos números.
+  // El pulgar de tu nueva foto (saliente) apunta a la derecha, por eso el offset es 0.
+  const OFFSET_ENTRANTE = 180; // (Asumo que tu foto de palma tiene el pulgar apuntando a la izquierda)
+  const OFFSET_SALIENTE = 0;   // Tu nueva foto tiene el pulgar apuntando a la derecha
   // =========================================================
 
   const S = {
-    qMag: 1.3, sign: 1, v: 0.9, B: 0.5, mass: 2.0,
-    fieldDir: 1, running: true, simSpeed: 0.2, showHand: true
+    qMag: 1.3, sign: -1, v: 0.9, B: 0.5, mass: 2.0,
+    fieldDir: -1, running: true, simSpeed: 0.2, showHand: true
   };
 
   let pos = { x: 0, y: 0 };
@@ -461,11 +466,11 @@ window.addEventListener('load', function() {
     const isBInto = S.fieldDir === -1; 
     const isPositive = S.sign > 0;
     
-    // 1. IMAGEN: Entrante = palma, Saliente = dorso
-    const newImgType = isBInto ? 'palma' : 'dorso';
+    // 1. SELECCIÓN DE IMAGEN
+    const newImgType = isBInto ? 'entrante' : 'saliente';
     if (currentImgType !== newImgType && img) {
       currentImgType = newImgType;
-      img.src = isBInto ? URL_MANO_PALMA : URL_MANO_DORSO;
+      img.src = isBInto ? IMG_ENTRANTE : IMG_SALIENTE;
     }
 
     // 2. TEXTO
@@ -480,21 +485,18 @@ window.addEventListener('load', function() {
       }
     }
 
-    // 3. ROTACIÓN Y VOLTEO DINÁMICO
+    // 3. ROTACIÓN Y VOLTEO
     if (img) {
-      // Calculamos el ángulo exacto de la velocidad en la pantalla
       const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
       
-      // Ajuste base: Asumimos que en la foto original el pulgar apunta hacia ARRIBA.
-      // Si apunta hacia ARRIBA, restamos 90 grados para alinearlo con los 0 grados de la pantalla.
-      let totalRotation = vAngle - 90; 
+      // Seleccionamos el offset correcto según el campo
+      let offset = isBInto ? OFFSET_ENTRANTE : OFFSET_SALIENTE;
+      let transformStyle = `rotate(${vAngle + offset}deg)`;
       
-      let transformStyle = `rotate(${totalRotation}deg)`;
-      
-      // Si el campo es saliente (puntos) y la carga es negativa,
-      // le damos vuelta la mano (efecto espejo vertical) para que la fuerza salga del otro lado.
+      // Si el campo es saliente (·) y la carga es negativa, damos vuelta la mano
+      // para simular que la fuerza sale del dorso. Usamos scaleX (espejo horizontal).
       if (!isBInto && !isPositive) {
-        transformStyle += ' scaleY(-1)';
+        transformStyle += ' scaleX(-1)';
       }
       
       img.style.transform = transformStyle;
