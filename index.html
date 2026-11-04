@@ -24,6 +24,7 @@
   }
   .app { display: flex; width: 100%; height: 100%; }
 
+  /* Panel de controles izquierdo */
   .sidebar {
     width: 340px; flex-shrink: 0;
     background: var(--panel-bg);
@@ -31,7 +32,9 @@
     padding: 24px; display: flex; flex-direction: column; gap: 20px;
     overflow-y: auto; z-index: 10;
   }
-  .sidebar h2 { font-size: 18px; margin: 0 0 10px; color: #0f172a; }
+  .sidebar h2 {
+    font-size: 18px; margin: 0 0 10px; color: #0f172a;
+  }
   .slider-group { display: flex; flex-direction: column; gap: 6px; }
   .slider-group label { font-size: 14px; font-weight: 600; color: #334155; }
   .slider-track-wrap { display: flex; align-items: center; gap: 8px; }
@@ -71,15 +74,20 @@
   .divider { height: 1px; background: var(--gray-track); margin: 8px 0; }
   .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; margin-bottom: -5px; }
 
+  /* Casilla de verificación personalizada */
   .checkbox-wrap {
     display: flex; align-items: center; gap: 10px; cursor: pointer;
     font-size: 14px; font-weight: 600; color: #334155; padding: 5px 0;
   }
-  .checkbox-wrap input { width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb; }
+  .checkbox-wrap input {
+    width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;
+  }
 
+  /* Área del simulador */
   .stage { flex: 1; position: relative; background: var(--bg); }
   canvas#sim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
 
+  /* Contenedor de la imagen de la mano */
   .hand-container {
     position: absolute; top: 24px; right: 24px;
     width: 220px; height: 220px;
@@ -110,6 +118,7 @@
     padding: 8px 0; background: rgba(255,255,255,0.9);
   }
 
+  /* Barra de lecturas inferior */
   .readout-bar {
     position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
     display: flex; align-items: center; gap: 20px;
@@ -244,14 +253,18 @@
 
 <script>
 /* =========================================================
-   CONFIGURACIÓN DE IMÁGENES
+   CONFIGURACIÓN DE IMÁGENES Y ROTACIÓN
    =========================================================
-   Cambia estas rutas por el nombre de tus archivos o los enlaces de GitHub.
-   Ejemplo local: "mano_palma.png"
-   Ejemplo GitHub: "https://raw.githubusercontent.com/tu-usuario/tu-repo/main/mano_palma.png"
+   1. Asegúrate de que los nombres de las imágenes coincidan 
+      con los archivos que subiste a GitHub.
+   2. Si una imagen gira "cabeza abajo" o mal, cambia su OFFSET.
+      Prueba con 0, 90, 180 o 270.
 */
-const URL_MANO_PALMA = "mano_dorso.png"; // Foto donde se ve la palma
-const URL_MANO_DORSO = "mano_palma.png"; // Foto donde se ve el dorso
+const URL_MANO_PALMA = "mano_palma.png"; // Imagen cuando el campo entra
+const URL_MANO_DORSO = "mano_dorso.png"; // Imagen cuando el campo sale
+
+const OFFSET_PALMA = 180; // Ángulo de ajuste para la foto de la palma
+const OFFSET_DORSO = 180; // Ángulo de ajuste para la foto del dorso
 /* ========================================================= */
 
 const S = {
@@ -269,7 +282,7 @@ const S = {
 let pos = { x: 0, y: 0 };
 let vel = { x: 0, y: 0 };
 let trail = [];
-let currentImgType = null; // Para no recargar la imagen si no cambió
+let currentImgType = null;
 
 const cv  = document.getElementById('sim');
 const ctx = cv.getContext('2d');
@@ -489,7 +502,7 @@ function drawParticle() {
 }
 
 /* =========================================================
-   ACTUALIZACIÓN DE LA IMAGEN DE LA MANO (Palma vs Dorso)
+   ACTUALIZACIÓN DE LA IMAGEN DE LA MANO
    ========================================================= */
 function updateHandImage() {
   if (!S.showHand) {
@@ -513,7 +526,6 @@ function updateHandImage() {
   }
 
   // 2. SELECCIÓN DEL TEXTO: Depende de carga Y campo
-  // F sale de la PALMA si (B entrante y q+) o (B saliente y q-)
   const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
   
   if (isFuerzaPalma) {
@@ -526,15 +538,8 @@ function updateHandImage() {
 
   // 3. ROTACIÓN
   const vAngle = Math.atan2(-vel.y, vel.x); 
-  const degrees = (vAngle * 180 / Math.PI) + 180;
-  
-  img.style.transform = `rotate(${degrees}deg)`;
-}
-  // Calcular el ángulo de la velocidad. 
-  const vAngle = Math.atan2(-vel.y, vel.x); 
-  // Asumimos que ambas fotos tienen el pulgar apuntando hacia la izquierda.
-  // Si en tu foto el pulgar apunta hacia arriba, cambia "+ 180" por "+ 90".
-  const degrees = (vAngle * 180 / Math.PI) + 180;
+  let offset = isBInto ? OFFSET_PALMA : OFFSET_DORSO;
+  const degrees = (vAngle * 180 / Math.PI) + offset;
   
   img.style.transform = `rotate(${degrees}deg)`;
 }
