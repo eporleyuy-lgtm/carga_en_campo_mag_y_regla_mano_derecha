@@ -232,16 +232,20 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // CONFIGURACIÓN DE TUS 2 IMÁGENES
+  // CONFIGURACIÓN DE IMÁGENES
   // =========================================================
   const IMG_ENTRANTE = "mano_palma.png";    
   const IMG_SALIENTE = "mano_saliente.png"; 
+  const IMG_DORSO = "mano_dorso.png"; // La imagen del brazo con pulsera
 
-  // Offsets para alinear el pulgar con la velocidad.
-  // Si en tu foto original el pulgar apunta a la izquierda, el offset es 180.
-  // Si apunta a la derecha, es 0.
-  const OFFSET_ENTRANTE = 180;       
-  const OFFSET_SALIENTE = 0;     
+  // =========================================================
+  // ÁNGULOS DE ROTACIÓN (Offset)
+  // Si el pulgar no coincide con 'v', sumale o restale 90, 180, etc.
+  // =========================================================
+  const ROT_ENTRANTE_POS = 180; // Caso 1: B entra, q(+)
+  const ROT_ENTRANTE_NEG = 180; // Caso 2: B entra, q(-) - ¡Ajustado para tu captura!
+  const ROT_SALIENTE_POS = 0;   // Caso 3: B sale, q(+) - Ya te funcionaba
+  const ROT_SALIENTE_NEG = 0;   // Caso 4: B sale, q(-)
   // =========================================================
 
   const S = {
@@ -466,16 +470,32 @@ window.addEventListener('load', function() {
     const isPositive = S.sign > 0;
     const isBInto = S.fieldDir === -1;
     
-    // 1. SELECCIÓN DE IMAGEN: Solo depende del campo
-    const imgSrc = isBInto ? IMG_ENTRANTE : IMG_SALIENTE;
-    const offset = isBInto ? OFFSET_ENTRANTE : OFFSET_SALIENTE;
+    let imgSrc, offset;
+
+    // ASIGNACIÓN DE IMAGEN Y ROTACIÓN SEGÚN EL CASO
+    if (isBInto && isPositive) {
+      imgSrc = IMG_ENTRANTE;
+      offset = ROT_ENTRANTE_POS;
+    } 
+    else if (isBInto && !isPositive) {
+      imgSrc = IMG_DORSO;
+      offset = ROT_ENTRANTE_NEG; // Ajustado a 180 para que el pulgar suba a la derecha
+    } 
+    else if (!isBInto && isPositive) {
+      imgSrc = IMG_SALIENTE;
+      offset = ROT_SALIENTE_POS;
+    } 
+    else {
+      imgSrc = IMG_DORSO; // O la que corresponda
+      offset = ROT_SALIENTE_NEG;
+    }
 
     if (img && img.getAttribute('data-src') !== imgSrc) {
       img.src = imgSrc;
       img.setAttribute('data-src', imgSrc);
     }
 
-    // 2. TEXTO: Solo depende de la carga
+    // El texto SOLO depende del signo de la carga
     if (label) {
       if (isPositive) {
         label.textContent = 'La F sale de la PALMA';
@@ -486,18 +506,10 @@ window.addEventListener('load', function() {
       }
     }
 
-    // 3. TRANSFORMACIÓN: Rotación y volteo
+    // SOLO ROTACIÓN (Sin espejos)
     if (img) {
       const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
-      let transformStyle = `rotate(${vAngle + offset}deg)`;
-      
-      // Si la carga es negativa, hacemos un espejo horizontal DESPUÉS de rotar.
-      // Esto hace que el pulgar siga apuntando en la dirección de v, pero la mano se de vuelta.
-      if (!isPositive) {
-        transformStyle += ' scaleX(-1)';
-      }
-      
-      img.style.transform = transformStyle;
+      img.style.transform = `rotate(${vAngle + offset}deg)`;
     }
   }
 
