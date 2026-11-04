@@ -232,27 +232,23 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // CONFIGURACIÓN DE TUS 3 IMÁGENES Y SUS ROTACIONES
+  // NOMBRES DE ARCHIVOS Y AJUSTES
   // =========================================================
-  const IMG_ENTRANTE = "mano_palma.png";    // La que usabas para campo entrante
-  const IMG_SALIENTE_POS = "mano_saliente.png"; // La nueva (palma de frente, pulgar derecha)
-  const IMG_SALIENTE_NEG = "mano_dorso.png";    // La vieja (pulgar arriba)
+  const IMG_ENTRANTE = "mano_palma.png";      // La foto para campo entrante
+  const IMG_SALIENTE = "mano_saliente.png";   // La nueva foto (pulgar a la derecha)
 
-  // Offsets: Ángulo que hay que sumarle para que el pulgar apunte a la derecha (0°)
-  const OFFSET_ENTRANTE = 180;       // Asumo que apunta a la izquierda
-  const OFFSET_SALIENTE_POS = 0;     // Apunta a la derecha
-  const OFFSET_SALIENTE_NEG = -90;   // Apunta hacia arriba
+  const OFFSET_ENTRANTE = 180; // Ajuste si el pulgar de la palma no coincide
+  const OFFSET_SALIENTE = 0;   // Ajuste si el pulgar de la nueva foto no coincide
   // =========================================================
 
   const S = {
     qMag: 1.3, sign: -1, v: 0.9, B: 0.5, mass: 2.0,
-    fieldDir: -1, running: true, simSpeed: 0.2, showHand: true
+    fieldDir: 1, running: true, simSpeed: 0.2, showHand: true // Empieza en saliente y negativo
   };
 
   let pos = { x: 0, y: 0 };
   let vel = { x: 0, y: 0 };
   let trail = [];
-  let currentImgType = null;
 
   const cv  = document.getElementById('sim');
   const ctx = cv.getContext('2d');
@@ -467,31 +463,39 @@ window.addEventListener('load', function() {
     const isBInto = S.fieldDir === -1; 
     const isPositive = S.sign > 0;
     
-    let newImgType, currentOffset;
+    let imgSrc, offset, isPalma, flip;
 
-    // 1. SELECCIÓN DE IMAGEN Y ROTACIÓN SEGÚN EL CASO
+    // LÓGICA EXPLÍCITA SEGÚN LO QUE PEDISTE
     if (isBInto) {
-      newImgType = 'entrante';
-      currentOffset = OFFSET_ENTRANTE;
-    } else if (isPositive) {
-      newImgType = 'saliente_pos';
-      currentOffset = OFFSET_SALIENTE_POS;
+      imgSrc = IMG_ENTRANTE;
+      offset = OFFSET_ENTRANTE;
+      if (isPositive) {
+        isPalma = true;
+        flip = false;
+      } else {
+        isPalma = false;
+        flip = true; // Para carga negativa, volteamos la mano
+      }
     } else {
-      newImgType = 'saliente_neg';
-      currentOffset = OFFSET_SALIENTE_NEG;
+      imgSrc = IMG_SALIENTE;
+      offset = OFFSET_SALIENTE;
+      isPalma = false; // En campo saliente, siempre decimos que sale del dorso
+      if (isPositive) {
+        flip = false;
+      } else {
+        flip = true; // Para carga negativa, volteamos la mano
+      }
     }
 
-    if (currentImgType !== newImgType && img) {
-      currentImgType = newImgType;
-      if (newImgType === 'entrante') img.src = IMG_ENTRANTE;
-      else if (newImgType === 'saliente_pos') img.src = IMG_SALIENTE_POS;
-      else img.src = IMG_SALIENTE_NEG;
+    // Actualizar imagen solo si cambió
+    if (img && img.getAttribute('data-src') !== imgSrc) {
+      img.src = imgSrc;
+      img.setAttribute('data-src', imgSrc);
     }
 
-    // 2. TEXTO
-    const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
+    // Actualizar texto
     if (label) {
-      if (isFuerzaPalma) {
+      if (isPalma) {
         label.textContent = 'La F sale de la PALMA';
         label.style.color = '#dc2626';
       } else {
@@ -500,11 +504,17 @@ window.addEventListener('load', function() {
       }
     }
 
-    // 3. ROTACIÓN
+    // Aplicar rotación y volteo
     if (img) {
       const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
-      const totalRotation = vAngle + currentOffset;
-      img.style.transform = `rotate(${totalRotation}deg)`;
+      let transformStyle = `rotate(${vAngle + offset}deg)`;
+      
+      if (flip) {
+        // El scaleX(-1) invierte la imagen como si la diéramos vuelta
+        transformStyle += ' scaleX(-1)';
+      }
+      
+      img.style.transform = transformStyle;
     }
   }
 
@@ -593,10 +603,14 @@ window.addEventListener('load', function() {
     updateReadouts();
   });
 
+  // Iniciar
   resizeMain();
   resetParticle();
   updateReadouts();
   requestAnimationFrame(loop);
+  
+  // Forzar actualización inicial de la mano
+  setTimeout(updateHandImage, 100);
 });
 </script>
 </body>
