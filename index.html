@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fuerza magnética — Simulador 2D</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --panel-bg: #ffffff;
+    --ink: #1e293b;
+    --green: #22c55e;
+    --blue: #2563eb;
+    --red: #dc2626;
+    --brown: #b45309;
+    --gray-track: #cbd5e1;
+    --gray-border: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg); color: var(--ink);
+  }
+  .app { display: flex; width: 100%; height: 100%; }
+
+  .sidebar {
+    width: 340px; flex-shrink: 0;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--gray-track);
+    padding: 24px; display: flex; flex-direction: column; gap: 20px;
+    overflow-y: auto; z-index: 10;
+  }
+  .sidebar h2 { font-size: 18px; margin: 0 0 10px; color: #0f172a; }
+  .slider-group { display: flex; flex-direction: column; gap: 6px; }
+  .slider-group label { font-size: 14px; font-weight: 600; color: #334155; }
+  .slider-track-wrap { display: flex; align-items: center; gap: 8px; }
+
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    flex: 1; height: 8px; background: var(--gray-track);
+    border-radius: 4px; border: 1px solid var(--gray-border); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 24px; background: #60a5fa;
+    border-radius: 4px; border: 1px solid var(--blue); cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 24px; background: #60a5fa;
+    border-radius: 4px; border: 1px solid var(--blue); cursor: pointer;
+  }
+
+  input[type="number"] {
+    width: 60px; height: 30px; text-align: center;
+    border: 1px solid #000; background: #fff;
+    font-family: monospace; font-size: 14px; outline: none;
+    border-radius: 4px;
+  }
+  .unit { font-size: 12px; color: #475569; font-family: monospace; white-space: nowrap; width: 80px; }
+
+  .toggle-btn {
+    padding: 10px; background: #f1f5f9; border: 1px solid var(--gray-border);
+    border-radius: 6px; font-size: 14px; cursor: pointer;
+    font-weight: 600; color: #333; width: 100%; text-align: center;
+    transition: background 0.2s;
+  }
+  .toggle-btn:hover { background: #e2e8f0; }
+  .toggle-btn.active { background: #dbeafe; border-color: #3b82f6; color: #1e40af; }
+
+  .divider { height: 1px; background: var(--gray-track); margin: 8px 0; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; margin-bottom: -5px; }
+
+  .checkbox-wrap {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: #334155; padding: 5px 0;
+  }
+  .checkbox-wrap input { width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb; }
+
+  .stage { flex: 1; position: relative; background: var(--bg); }
+  canvas#sim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+
+  .hand-container {
+    position: absolute; top: 24px; right: 24px;
+    width: 220px; height: 220px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px; border: 1px solid var(--gray-track);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10; overflow: hidden; pointer-events: none;
+  }
+  .hand-container.active { display: flex; }
+  
+  .hand-title {
+    font-size: 12px; font-weight: bold; color: #1e293b;
+    margin-top: 10px; text-align: center;
+  }
+
+  .hand-img {
+    width: 140px; height: 140px;
+    object-fit: contain;
+    transition: transform 0.1s linear; 
+    mix-blend-mode: multiply; 
+  }
+
+  .hand-status {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    text-align: center; font-size: 12px; font-weight: bold;
+    padding: 8px 0; background: rgba(255,255,255,0.9);
+  }
+
+  .readout-bar {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 20px;
+    background: #fff; padding: 14px 24px;
+    border-radius: 10px; border: 1px solid var(--gray-track);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08); z-index: 10;
+  }
+  .readout-item { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #334155; font-weight: 600; }
+  .readout-box {
+    border: 1px solid #000; padding: 4px 10px;
+    font-family: monospace; font-size: 14px; background: #fff;
+    border-radius: 4px; min-width: 110px; text-align: center;
+    white-space: nowrap;
+  }
+  .reset-btn {
+    background: #f8fafc; border: 1px solid var(--gray-border); border-radius: 50%;
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #475569; transition: 0.2s; margin-left: 10px;
+  }
+  .reset-btn:hover { background: #e2e8f0; color: #0f172a; }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--gray-track); flex-direction: row; flex-wrap: wrap; padding: 15px; }
+    .slider-group { width: 45%; }
+    .stage { height: 50vh; flex: none; }
+    .hand-container { top: 10px; right: 10px; width: 160px; height: 160px; }
+    .hand-img { width: 100px; height: 100px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <h2>Controles</h2>
+    
+    <div class="section-title">Variables Físicas</div>
+    
+    <div class="slider-group">
+      <label>Carga (q)</label>
+      <div class="slider-track-wrap">
+        <input type="range" id="qSlider" min="0.5" max="3" step="0.1" value="1.3">
+        <input type="number" id="qNum" value="1.3" step="0.1">
+        <span class="unit">× 10⁻⁶ C</span>
+      </div>
+    </div>
+
+    <div class="slider-group">
+      <label>Campo Magnético (B⃗)</label>
+      <div class="slider-track-wrap">
+        <input type="range" id="bSlider" min="0.2" max="3" step="0.1" value="0.5">
+        <input type="number" id="bNum" value="0.5" step="0.1">
+        <span class="unit">T</span>
+      </div>
+    </div>
+
+    <div class="slider-group">
+      <label>Masa (m)</label>
+      <div class="slider-track-wrap">
+        <input type="range" id="mSlider" min="1" max="5" step="0.1" value="2.0">
+        <input type="number" id="mNum" value="2.0" step="0.1">
+        <span class="unit">× 10⁻²⁷ kg</span>
+      </div>
+    </div>
+
+    <div class="slider-group">
+      <label>Velocidad (v⃗)</label>
+      <div class="slider-track-wrap">
+        <input type="range" id="vSlider" min="0.5" max="3" step="0.1" value="0.9">
+        <input type="number" id="vNum" value="0.9" step="0.1">
+        <span class="unit">× 10⁵ m/s</span>
+      </div>
+    </div>
+
+    <button id="fieldDirBtn" class="toggle-btn active">Campo B: Entrante (×)</button>
+    <button id="signBtn" class="toggle-btn">Signo de la carga: (−)</button>
+
+    <div class="divider"></div>
+    <div class="section-title">Visualización</div>
+    
+    <label class="checkbox-wrap">
+      <input type="checkbox" id="ckHand" checked>
+      Mostrar regla de la mano
+    </label>
+
+    <div class="divider"></div>
+    <div class="section-title">Control de Simulación</div>
+
+    <div class="slider-group">
+      <label>Velocidad de simulación (Cámara lenta)</label>
+      <div class="slider-track-wrap">
+        <input type="range" id="speedSlider" min="0.05" max="1" step="0.05" value="0.2">
+        <input type="number" id="speedNum" value="0.2" step="0.05">
+        <span class="unit">x</span>
+      </div>
+    </div>
+
+    <button id="pauseBtn" class="toggle-btn" style="border-color: #3b82f6; color: #1d4ed8;">⏸ Pausar simulación</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="sim"></canvas>
+
+    <div class="hand-container" id="handContainer">
+      <div class="hand-title">REGLA DE LA MANO</div>
+      <img id="handImg" class="hand-img" src="" alt="Regla de la mano">
+      <div class="hand-status" id="handStatusLabel">F sale del DORSO</div>
+    </div>
+    
+    <div class="readout-bar">
+      <div class="readout-item">
+        <span>Radio de giro</span>
+        <div class="readout-box"><span id="rVal">0.00e+0</span> m</div>
+      </div>
+      <div class="readout-item">
+        <span>Período</span>
+        <div class="readout-box"><span id="tVal">0.00e+0</span> s</div>
+      </div>
+      <div class="readout-item">
+        <span>Fuerza (F⃗)</span>
+        <div class="readout-box"><span id="fVal">0.00e+0</span> N</div>
+      </div>
+      <button id="resetBtn" class="reset-btn" title="Reiniciar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIGURACIÓN DE IMÁGENES
+   =========================================================
+   Cambia estas rutas por el nombre de tus archivos o los enlaces de GitHub.
+   Ejemplo local: "mano_palma.png"
+   Ejemplo GitHub: "https://raw.githubusercontent.com/tu-usuario/tu-repo/main/mano_palma.png"
+*/
+const URL_MANO_PALMA = "mano_palma.png"; // Foto donde se ve la palma
+const URL_MANO_DORSO = "mano_dorso.png"; // Foto donde se ve el dorso
+/* ========================================================= */
+
+const S = {
+  qMag: 1.3,
+  sign: -1, 
+  v: 0.9,
+  B: 0.5,
+  mass: 2.0,
+  fieldDir: -1, // -1 = Entrante, 1 = Saliente
+  running: true,
+  simSpeed: 0.2,
+  showHand: true
+};
+
+let pos = { x: 0, y: 0 };
+let vel = { x: 0, y: 0 };
+let trail = [];
+let currentImgType = null; // Para no recargar la imagen si no cambió
+
+const cv  = document.getElementById('sim');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, cxc = 0, cyc = 0;
+let PIXELS_PER_UNIT = 50;
+
+function resizeMain() {
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width  = Math.max(1, Math.round(r.width  * dpr));
+  cv.height = Math.max(1, Math.round(r.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = r.width; H = r.height; cxc = W/2; cyc = H/2;
+  
+  const typicalR = (S.mass * S.v) / (S.qMag * S.B); 
+  PIXELS_PER_UNIT = Math.min(W, H) * 0.35 / typicalR;
+  if (PIXELS_PER_UNIT > 80) PIXELS_PER_UNIT = 80;
+  if (PIXELS_PER_UNIT < 20) PIXELS_PER_UNIT = 20;
+}
+
+function resetParticle() {
+  const q = S.sign * S.qMag;
+  const omega = (-q * S.fieldDir * S.B) / S.mass; 
+  
+  if (Math.abs(omega) > 1e-9) {
+    const r = S.v / Math.abs(omega);
+    pos = { x: r, y: 0 };
+    vel = { x: 0, y: S.v * Math.sign(omega) };
+  } else {
+    pos = { x: 0, y: 0 };
+    vel = { x: 0, y: S.v };
+  }
+  trail = [{ x: pos.x, y: pos.y }];
+}
+
+function toScreen(p) {
+  return {
+    X: cxc + p.x * PIXELS_PER_UNIT,
+    Y: cyc - p.y * PIXELS_PER_UNIT
+  };
+}
+
+function simulate(dtReal) {
+  const q = S.sign * S.qMag;
+  const omega = (-q * S.fieldDir * S.B) / S.mass;
+  if (Math.abs(omega) < 1e-9) return;
+  
+  const T_sim = 2 * Math.PI / Math.abs(omega);
+  const dt_sim = (dtReal / 2.0) * T_sim * S.simSpeed;
+  
+  const angle = omega * dt_sim;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  
+  const newX = pos.x * cosA - pos.y * sinA;
+  const newY = pos.x * sinA + pos.y * cosA;
+  
+  const newVx = vel.x * cosA - vel.y * sinA;
+  const newVy = vel.x * sinA + vel.y * cosA;
+  
+  pos.x = newX;
+  pos.y = newY;
+  vel.x = newVx;
+  vel.y = newVy;
+  
+  trail.push({ x: pos.x, y: pos.y });
+  if (trail.length > 1500) trail.shift();
+}
+
+/* ---------- Dibujo ---------- */
+
+function drawField() {
+  const sp = 45; 
+  const offsetX = (cxc % sp);
+  const offsetY = (cyc % sp);
+  
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+  ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
+  
+  for (let x = offsetX; x < W; x += sp) {
+    for (let y = offsetY; y < H; y += sp) {
+      if (S.fieldDir === -1) {
+        const s = 4;
+        ctx.beginPath();
+        ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s);
+        ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function drawTrail() {
+  if (trail.length < 2) return;
+  ctx.beginPath();
+  const p0 = toScreen(trail[0]);
+  ctx.moveTo(p0.X, p0.Y);
+  for (let i = 1; i < trail.length; i++) {
+    const p = toScreen(trail[i]);
+    ctx.lineTo(p.X, p.Y);
+  }
+  ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawArrow(x1, y1, x2, y2, color, width) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = Math.hypot(dx, dy);
+  if (L < 1) return;
+  const ux = dx/L, uy = dy/L;
+  const head = Math.min(12, L*0.4);
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2 - ux*head*0.8, y2 - uy*head*0.8);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - ux*head - uy*head*0.5, y2 - uy*head + ux*head*0.5);
+  ctx.lineTo(x2 - ux*head + uy*head*0.5, y2 - uy*head - ux*head*0.5);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawVectorLabel(text, x, y, color) {
+  ctx.fillStyle = color;
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, x, y);
+
+  const w = ctx.measureText(text).width;
+  const arrowY = y - 18;
+  const arrowStart = x - 1;
+  const arrowEnd = x + w + 1;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(arrowStart, arrowY);
+  ctx.lineTo(arrowEnd - 4, arrowY);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(arrowEnd, arrowY);
+  ctx.lineTo(arrowEnd - 6, arrowY - 4);
+  ctx.lineTo(arrowEnd - 6, arrowY + 4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawVectors() {
+  const pScreen = toScreen(pos);
+  
+  const vmag = Math.hypot(vel.x, vel.y);
+  if (vmag > 1e-6) {
+    const lenV = 20 + ((S.v - 0.5) / 2.5) * 50; 
+    const vx = (vel.x / vmag) * lenV;
+    const vy = -(vel.y / vmag) * lenV; 
+    drawArrow(pScreen.X, pScreen.Y, pScreen.X + vx, pScreen.Y + vy, '#2563eb', 3);
+    drawVectorLabel('v', pScreen.X + vx + 10, pScreen.Y + vy + 5, '#2563eb');
+  }
+  
+  const dist = Math.hypot(pos.x, pos.y);
+  if (dist > 1e-6) {
+    const fMagSim = S.qMag * S.v * S.B; 
+    const logF = Math.log10(fMagSim);
+    const lenF = 30 + ((logF + 1.3) / 2.73) * 90;
+    
+    const fx = -(pos.x / dist) * lenF;
+    const fy = (pos.y / dist) * lenF; 
+    drawArrow(pScreen.X, pScreen.Y, pScreen.X + fx, pScreen.Y + fy, '#dc2626', 3.5);
+    drawVectorLabel('F', pScreen.X + fx + 10, pScreen.Y + fy + 5, '#dc2626');
+  }
+}
+
+function drawParticle() {
+  const p = toScreen(pos);
+  
+  const g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, 18);
+  g.addColorStop(0, 'rgba(180, 83, 9, 0.35)');
+  g.addColorStop(1, 'rgba(180, 83, 9, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(p.X, p.Y, 18, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = '#b45309';
+  ctx.beginPath(); ctx.arc(p.X, p.Y, 9, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (S.sign > 0) {
+    ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
+    ctx.moveTo(p.X, p.Y - 4); ctx.lineTo(p.X, p.Y + 4);
+  } else {
+    ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
+  }
+  ctx.stroke();
+}
+
+/* =========================================================
+   ACTUALIZACIÓN DE LA IMAGEN DE LA MANO (Palma vs Dorso)
+   ========================================================= */
+function updateHandImage() {
+  if (!S.showHand) {
+    document.getElementById('handContainer').classList.remove('active');
+    return;
+  }
+  document.getElementById('handContainer').classList.add('active');
+
+  const img = document.getElementById('handImg');
+  const label = document.getElementById('handStatusLabel');
+  
+  const isBInto = S.fieldDir === -1; // Entrante
+  const isPositive = S.sign > 0;
+  
+  // Lógica física:
+  // F sale de la PALMA si (B entrante y q+) o (B saliente y q-)
+  // F sale del DORSO si (B entrante y q-) o (B saliente y q+)
+  const isPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
+
+  // Si cambiamos de estado (de palma a dorso o viceversa), cambiamos la imagen
+  const newImgType = isPalma ? 'palma' : 'dorso';
+  if (currentImgType !== newImgType) {
+    currentImgType = newImgType;
+    img.src = isPalma ? URL_MANO_PALMA : URL_MANO_DORSO;
+    
+    if (isPalma) {
+      label.textContent = 'La F sale de la PALMA';
+      label.style.color = '#dc2626';
+    } else {
+      label.textContent = 'La F sale del DORSO';
+      label.style.color = '#1e40af';
+    }
+  }
+
+  // Calcular el ángulo de la velocidad. 
+  const vAngle = Math.atan2(-vel.y, vel.x); 
+  // Asumimos que ambas fotos tienen el pulgar apuntando hacia la izquierda.
+  // Si en tu foto el pulgar apunta hacia arriba, cambia "+ 180" por "+ 90".
+  const degrees = (vAngle * 180 / Math.PI) + 180;
+  
+  img.style.transform = `rotate(${degrees}deg)`;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawField();
+  drawTrail();
+  drawVectors();
+  drawParticle();
+  updateHandImage();
+}
+
+let last = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dtReal = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  
+  if (S.running) simulate(dtReal);
+  draw();
+}
+
+/* =========================================================
+   INTERFAZ
+   ========================================================= */
+
+function updateReadouts() {
+  const q_SI = S.qMag * 1e-6;
+  const v_SI = S.v * 1e5;
+  const B_SI = S.B;
+  const m_SI = S.mass * 1e-27;
+  
+  const F_SI = q_SI * v_SI * B_SI;
+  const T_SI = (2 * Math.PI * m_SI) / (q_SI * B_SI);
+  const r_SI = (m_SI * v_SI) / (q_SI * B_SI);
+  
+  document.getElementById('rVal').textContent = r_SI.toExponential(2);
+  document.getElementById('tVal').textContent = T_SI.toExponential(2);
+  document.getElementById('fVal').textContent = F_SI.toExponential(2);
+}
+
+function bindSlider(sliderId, numId, stateKey, callback = null) {
+  const slider = document.getElementById(sliderId);
+  const num = document.getElementById(numId);
+  
+  const update = (val) => {
+    val = parseFloat(val);
+    if (isNaN(val)) val = parseFloat(slider.min);
+    val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
+    S[stateKey] = val;
+    slider.value = val;
+    num.value = val.toFixed(2).replace(/\.?0+$/, "");
+    if (callback) callback();
+  };
+
+  slider.addEventListener('input', e => update(e.target.value));
+  num.addEventListener('change', e => update(e.target.value));
+}
+
+bindSlider('qSlider', 'qNum', 'qMag', () => { resizeMain(); resetParticle(); updateReadouts(); });
+bindSlider('bSlider', 'bNum', 'B', () => { resizeMain(); resetParticle(); updateReadouts(); });
+bindSlider('mSlider', 'mNum', 'mass', () => { resizeMain(); resetParticle(); updateReadouts(); });
+bindSlider('vSlider', 'vNum', 'v', () => { resizeMain(); resetParticle(); updateReadouts(); });
+bindSlider('speedSlider', 'speedNum', 'simSpeed');
+
+document.getElementById('signBtn').addEventListener('click', (e) => {
+  S.sign *= -1;
+  e.target.textContent = `Signo de la carga: ${S.sign > 0 ? '(+)' : '(−)'}`;
+  e.target.classList.toggle('active', S.sign > 0);
+  resetParticle();
+});
+
+document.getElementById('fieldDirBtn').addEventListener('click', (e) => {
+  S.fieldDir *= -1;
+  e.target.textContent = `Campo B: ${S.fieldDir === -1 ? 'Entrante (×)' : 'Saliente (·)'}`;
+  resetParticle();
+});
+
+document.getElementById('ckHand').addEventListener('change', (e) => {
+  S.showHand = e.target.checked;
+});
+
+document.getElementById('pauseBtn').addEventListener('click', (e) => {
+  S.running = !S.running;
+  e.target.textContent = S.running ? '⏸ Pausar simulación' : '▶ Reanudar simulación';
+  e.target.classList.toggle('active', !S.running);
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  resetParticle();
+});
+
+window.addEventListener('resize', () => {
+  resizeMain();
+  resetParticle();
+  updateReadouts();
+});
+
+/* Arranque */
+resizeMain();
+resetParticle();
+updateReadouts();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
