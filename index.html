@@ -504,26 +504,32 @@ function updateHandImage() {
   const isBInto = S.fieldDir === -1; // Entrante
   const isPositive = S.sign > 0;
   
-  // Lógica física:
-  // F sale de la PALMA si (B entrante y q+) o (B saliente y q-)
-  // F sale del DORSO si (B entrante y q-) o (B saliente y q+)
-  const isPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
-
-  // Si cambiamos de estado (de palma a dorso o viceversa), cambiamos la imagen
-  const newImgType = isPalma ? 'palma' : 'dorso';
+  // 1. SELECCIÓN DE LA IMAGEN: Depende SOLO del campo
+  const newImgType = isBInto ? 'palma' : 'dorso';
+  
   if (currentImgType !== newImgType) {
     currentImgType = newImgType;
-    img.src = isPalma ? URL_MANO_PALMA : URL_MANO_DORSO;
-    
-    if (isPalma) {
-      label.textContent = 'La F sale de la PALMA';
-      label.style.color = '#dc2626';
-    } else {
-      label.textContent = 'La F sale del DORSO';
-      label.style.color = '#1e40af';
-    }
+    img.src = isBInto ? URL_MANO_PALMA : URL_MANO_DORSO;
   }
 
+  // 2. SELECCIÓN DEL TEXTO: Depende de carga Y campo
+  // F sale de la PALMA si (B entrante y q+) o (B saliente y q-)
+  const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
+  
+  if (isFuerzaPalma) {
+    label.textContent = 'La F sale de la PALMA';
+    label.style.color = '#dc2626';
+  } else {
+    label.textContent = 'La F sale del DORSO';
+    label.style.color = '#1e40af';
+  }
+
+  // 3. ROTACIÓN
+  const vAngle = Math.atan2(-vel.y, vel.x); 
+  const degrees = (vAngle * 180 / Math.PI) + 180;
+  
+  img.style.transform = `rotate(${degrees}deg)`;
+}
   // Calcular el ángulo de la velocidad. 
   const vAngle = Math.atan2(-vel.y, vel.x); 
   // Asumimos que ambas fotos tienen el pulgar apuntando hacia la izquierda.
