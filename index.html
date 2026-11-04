@@ -232,15 +232,16 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // NOMBRES DE ARCHIVOS Y AJUSTES DE ROTACIÓN
+  // CONFIGURACIÓN DE TUS 3 IMÁGENES Y SUS ROTACIONES
   // =========================================================
-  const IMG_ENTRANTE = "mano_palma.png";   // Imagen cuando el campo es (X) - Palma
-  const IMG_SALIENTE = "mano_saliente.png"; // Imagen cuando el campo es (·) - Dorso/Palma nueva
-  
-  // Si las fotos no coinciden exactamente con el vector v, ajustá estos números.
-  // El pulgar de tu nueva foto (saliente) apunta a la derecha, por eso el offset es 0.
-  const OFFSET_ENTRANTE = 180; // (Asumo que tu foto de palma tiene el pulgar apuntando a la izquierda)
-  const OFFSET_SALIENTE = 0;   // Tu nueva foto tiene el pulgar apuntando a la derecha
+  const IMG_ENTRANTE = "mano_palma.png";    // La que usabas para campo entrante
+  const IMG_SALIENTE_POS = "mano_saliente.png"; // La nueva (palma de frente, pulgar derecha)
+  const IMG_SALIENTE_NEG = "mano_dorso.png";    // La vieja (pulgar arriba)
+
+  // Offsets: Ángulo que hay que sumarle para que el pulgar apunte a la derecha (0°)
+  const OFFSET_ENTRANTE = 180;       // Asumo que apunta a la izquierda
+  const OFFSET_SALIENTE_POS = 0;     // Apunta a la derecha
+  const OFFSET_SALIENTE_NEG = -90;   // Apunta hacia arriba
   // =========================================================
 
   const S = {
@@ -466,11 +467,25 @@ window.addEventListener('load', function() {
     const isBInto = S.fieldDir === -1; 
     const isPositive = S.sign > 0;
     
-    // 1. SELECCIÓN DE IMAGEN
-    const newImgType = isBInto ? 'entrante' : 'saliente';
+    let newImgType, currentOffset;
+
+    // 1. SELECCIÓN DE IMAGEN Y ROTACIÓN SEGÚN EL CASO
+    if (isBInto) {
+      newImgType = 'entrante';
+      currentOffset = OFFSET_ENTRANTE;
+    } else if (isPositive) {
+      newImgType = 'saliente_pos';
+      currentOffset = OFFSET_SALIENTE_POS;
+    } else {
+      newImgType = 'saliente_neg';
+      currentOffset = OFFSET_SALIENTE_NEG;
+    }
+
     if (currentImgType !== newImgType && img) {
       currentImgType = newImgType;
-      img.src = isBInto ? IMG_ENTRANTE : IMG_SALIENTE;
+      if (newImgType === 'entrante') img.src = IMG_ENTRANTE;
+      else if (newImgType === 'saliente_pos') img.src = IMG_SALIENTE_POS;
+      else img.src = IMG_SALIENTE_NEG;
     }
 
     // 2. TEXTO
@@ -485,21 +500,11 @@ window.addEventListener('load', function() {
       }
     }
 
-    // 3. ROTACIÓN Y VOLTEO
+    // 3. ROTACIÓN
     if (img) {
       const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
-      
-      // Seleccionamos el offset correcto según el campo
-      let offset = isBInto ? OFFSET_ENTRANTE : OFFSET_SALIENTE;
-      let transformStyle = `rotate(${vAngle + offset}deg)`;
-      
-      // Si el campo es saliente (·) y la carga es negativa, damos vuelta la mano
-      // para simular que la fuerza sale del dorso. Usamos scaleX (espejo horizontal).
-      if (!isBInto && !isPositive) {
-        transformStyle += ' scaleX(-1)';
-      }
-      
-      img.style.transform = transformStyle;
+      const totalRotation = vAngle + currentOffset;
+      img.style.transform = `rotate(${totalRotation}deg)`;
     }
   }
 
