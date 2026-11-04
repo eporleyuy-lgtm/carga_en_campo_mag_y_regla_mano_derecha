@@ -202,7 +202,6 @@
 
     <div class="hand-container" id="handContainer">
       <div class="hand-title">REGLA DE LA MANO</div>
-      <!-- Aquí ya no hay onerror, si falla verás el icono de imagen rota -->
       <img id="handImg" class="hand-img" src="mano_palma.png" alt="Regla de la mano">
       <div class="hand-status" id="handStatusLabel">F sale del DORSO</div>
     </div>
@@ -233,12 +232,12 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // Nombres exactos de tus archivos en GitHub
+  // ¡ATENCIÓN! NOMBRES EXACTOS DE TUS ARCHIVOS
   // =========================================================
   const URL_MANO_PALMA = "mano_palma.png"; 
   const URL_MANO_DORSO = "mano_dorso.png"; 
 
-  // Ajuste de rotación (si giran mal, cambialos por 0, 90 o 270)
+  // Ajuste de rotación (si alguna foto gira mal, cambialos por 0, 90 o 270)
   const OFFSET_PALMA = 180; 
   const OFFSET_DORSO = 180; 
   // =========================================================
@@ -466,14 +465,14 @@ window.addEventListener('load', function() {
     const isBInto = S.fieldDir === -1; 
     const isPositive = S.sign > 0;
     
-    // Cambiar la imagen según el campo
+    // 1. IMAGEN: Entrante = palma, Saliente = dorso
     const newImgType = isBInto ? 'palma' : 'dorso';
     if (currentImgType !== newImgType && img) {
       currentImgType = newImgType;
       img.src = isBInto ? URL_MANO_PALMA : URL_MANO_DORSO;
     }
 
-    // Cambiar el texto según la carga y el campo
+    // 2. TEXTO
     const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
     if (label) {
       if (isFuerzaPalma) {
@@ -485,12 +484,20 @@ window.addEventListener('load', function() {
       }
     }
 
-    // Rotar la imagen según la velocidad
+    // 3. ROTACIÓN Y VOLTEO
     if (img) {
       const vAngle = Math.atan2(-vel.y, vel.x); 
       let offset = isBInto ? OFFSET_PALMA : OFFSET_DORSO;
       const degrees = (vAngle * 180 / Math.PI) + offset;
-      img.style.transform = `rotate(${degrees}deg)`;
+      
+      let transformStyle = `rotate(${degrees}deg)`;
+      
+      // Voltear verticalmente si el campo es saliente (puntos) y la carga es negativa
+      if (!isBInto && !isPositive) {
+        transformStyle += ' scaleY(-1)';
+      }
+      
+      img.style.transform = transformStyle;
     }
   }
 
