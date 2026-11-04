@@ -32,9 +32,7 @@
     padding: 24px; display: flex; flex-direction: column; gap: 20px;
     overflow-y: auto; z-index: 10;
   }
-  .sidebar h2 {
-    font-size: 18px; margin: 0 0 10px; color: #0f172a;
-  }
+  .sidebar h2 { font-size: 18px; margin: 0 0 10px; color: #0f172a; }
   .slider-group { display: flex; flex-direction: column; gap: 6px; }
   .slider-group label { font-size: 14px; font-weight: 600; color: #334155; }
   .slider-track-wrap { display: flex; align-items: center; gap: 8px; }
@@ -74,14 +72,11 @@
   .divider { height: 1px; background: var(--gray-track); margin: 8px 0; }
   .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; margin-bottom: -5px; }
 
-  /* Casilla de verificación personalizada */
   .checkbox-wrap {
     display: flex; align-items: center; gap: 10px; cursor: pointer;
     font-size: 14px; font-weight: 600; color: #334155; padding: 5px 0;
   }
-  .checkbox-wrap input {
-    width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;
-  }
+  .checkbox-wrap input { width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb; }
 
   /* Área del simulador */
   .stage { flex: 1; position: relative; background: var(--bg); }
@@ -224,7 +219,8 @@
 
     <div class="hand-container" id="handContainer">
       <div class="hand-title">REGLA DE LA MANO</div>
-      <img id="handImg" class="hand-img" src="" alt="Regla de la mano">
+      <!-- El onerror evita que se rompa si falta la imagen -->
+      <img id="handImg" class="hand-img" src="" alt="Regla de la mano" onerror="this.style.display='none'">
       <div class="hand-status" id="handStatusLabel">F sale del DORSO</div>
     </div>
     
@@ -252,398 +248,396 @@
 </div>
 
 <script>
-/* =========================================================
-   CONFIGURACIÓN DE IMÁGENES Y ROTACIÓN
-   =========================================================
-   1. Asegúrate de que los nombres de las imágenes coincidan 
-      con los archivos que subiste a GitHub.
-   2. Si una imagen gira "cabeza abajo" o mal, cambia su OFFSET.
-      Prueba con 0, 90, 180 o 270.
-*/
-const URL_MANO_PALMA = "mano_palma.png"; // Imagen cuando el campo entra
-const URL_MANO_DORSO = "mano_dorso.png"; // Imagen cuando el campo sale
+window.addEventListener('load', function() {
+  /* =========================================================
+     CONFIGURACIÓN DE IMÁGENES
+     ========================================================= */
+  // ¡Revisá que estos nombres coincidan EXACTAMENTE con tus archivos en GitHub!
+  const URL_MANO_PALMA = "mano_palma.png"; 
+  const URL_MANO_DORSO = "mano_dorso.png"; 
 
-const OFFSET_PALMA = 180; // Ángulo de ajuste para la foto de la palma
-const OFFSET_DORSO = 180; // Ángulo de ajuste para la foto del dorso
-/* ========================================================= */
+  // Ajustes de rotación (cambialos si alguna foto gira mal)
+  const OFFSET_PALMA = 180; 
+  const OFFSET_DORSO = 180; 
+  /* ========================================================= */
 
-const S = {
-  qMag: 1.3,
-  sign: -1, 
-  v: 0.9,
-  B: 0.5,
-  mass: 2.0,
-  fieldDir: -1, // -1 = Entrante, 1 = Saliente
-  running: true,
-  simSpeed: 0.2,
-  showHand: true
-};
-
-let pos = { x: 0, y: 0 };
-let vel = { x: 0, y: 0 };
-let trail = [];
-let currentImgType = null;
-
-const cv  = document.getElementById('sim');
-const ctx = cv.getContext('2d');
-let W = 0, H = 0, cxc = 0, cyc = 0;
-let PIXELS_PER_UNIT = 50;
-
-function resizeMain() {
-  const r = cv.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  cv.width  = Math.max(1, Math.round(r.width  * dpr));
-  cv.height = Math.max(1, Math.round(r.height * dpr));
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  W = r.width; H = r.height; cxc = W/2; cyc = H/2;
-  
-  const typicalR = (S.mass * S.v) / (S.qMag * S.B); 
-  PIXELS_PER_UNIT = Math.min(W, H) * 0.35 / typicalR;
-  if (PIXELS_PER_UNIT > 80) PIXELS_PER_UNIT = 80;
-  if (PIXELS_PER_UNIT < 20) PIXELS_PER_UNIT = 20;
-}
-
-function resetParticle() {
-  const q = S.sign * S.qMag;
-  const omega = (-q * S.fieldDir * S.B) / S.mass; 
-  
-  if (Math.abs(omega) > 1e-9) {
-    const r = S.v / Math.abs(omega);
-    pos = { x: r, y: 0 };
-    vel = { x: 0, y: S.v * Math.sign(omega) };
-  } else {
-    pos = { x: 0, y: 0 };
-    vel = { x: 0, y: S.v };
-  }
-  trail = [{ x: pos.x, y: pos.y }];
-}
-
-function toScreen(p) {
-  return {
-    X: cxc + p.x * PIXELS_PER_UNIT,
-    Y: cyc - p.y * PIXELS_PER_UNIT
+  const S = {
+    qMag: 1.3,
+    sign: -1, 
+    v: 0.9,
+    B: 0.5,
+    mass: 2.0,
+    fieldDir: -1, // -1 = Entrante, 1 = Saliente
+    running: true,
+    simSpeed: 0.2,
+    showHand: true
   };
-}
 
-function simulate(dtReal) {
-  const q = S.sign * S.qMag;
-  const omega = (-q * S.fieldDir * S.B) / S.mass;
-  if (Math.abs(omega) < 1e-9) return;
-  
-  const T_sim = 2 * Math.PI / Math.abs(omega);
-  const dt_sim = (dtReal / 2.0) * T_sim * S.simSpeed;
-  
-  const angle = omega * dt_sim;
-  const cosA = Math.cos(angle);
-  const sinA = Math.sin(angle);
-  
-  const newX = pos.x * cosA - pos.y * sinA;
-  const newY = pos.x * sinA + pos.y * cosA;
-  
-  const newVx = vel.x * cosA - vel.y * sinA;
-  const newVy = vel.x * sinA + vel.y * cosA;
-  
-  pos.x = newX;
-  pos.y = newY;
-  vel.x = newVx;
-  vel.y = newVy;
-  
-  trail.push({ x: pos.x, y: pos.y });
-  if (trail.length > 1500) trail.shift();
-}
+  let pos = { x: 0, y: 0 };
+  let vel = { x: 0, y: 0 };
+  let trail = [];
+  let currentImgType = null;
 
-/* ---------- Dibujo ---------- */
+  const cv  = document.getElementById('sim');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, cxc = 0, cyc = 0;
+  let PIXELS_PER_UNIT = 50;
 
-function drawField() {
-  const sp = 45; 
-  const offsetX = (cxc % sp);
-  const offsetY = (cyc % sp);
-  
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
-  ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
-  
-  for (let x = offsetX; x < W; x += sp) {
-    for (let y = offsetY; y < H; y += sp) {
-      if (S.fieldDir === -1) {
-        const s = 4;
-        ctx.beginPath();
-        ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s);
-        ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s);
-        ctx.stroke();
-      } else {
-        ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+  function resizeMain() {
+    const parent = cv.parentElement;
+    const dpr = window.devicePixelRatio || 1;
+    W = parent.clientWidth;
+    H = parent.clientHeight;
+    cv.width  = Math.max(1, Math.round(W * dpr));
+    cv.height = Math.max(1, Math.round(H * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cxc = W/2; cyc = H/2;
+    
+    const typicalR = (S.mass * S.v) / (S.qMag * S.B); 
+    PIXELS_PER_UNIT = Math.min(W, H) * 0.35 / typicalR;
+    if (PIXELS_PER_UNIT > 80) PIXELS_PER_UNIT = 80;
+    if (PIXELS_PER_UNIT < 20) PIXELS_PER_UNIT = 20;
+  }
+
+  function resetParticle() {
+    const q = S.sign * S.qMag;
+    const omega = (-q * S.fieldDir * S.B) / S.mass; 
+    
+    if (Math.abs(omega) > 1e-9) {
+      const r = S.v / Math.abs(omega);
+      pos = { x: r, y: 0 };
+      vel = { x: 0, y: S.v * Math.sign(omega) };
+    } else {
+      pos = { x: 0, y: 0 };
+      vel = { x: 0, y: S.v };
+    }
+    trail = [{ x: pos.x, y: pos.y }];
+  }
+
+  function toScreen(p) {
+    return {
+      X: cxc + p.x * PIXELS_PER_UNIT,
+      Y: cyc - p.y * PIXELS_PER_UNIT
+    };
+  }
+
+  function simulate(dtReal) {
+    const q = S.sign * S.qMag;
+    const omega = (-q * S.fieldDir * S.B) / S.mass;
+    if (Math.abs(omega) < 1e-9) return;
+    
+    const T_sim = 2 * Math.PI / Math.abs(omega);
+    const dt_sim = (dtReal / 2.0) * T_sim * S.simSpeed;
+    
+    const angle = omega * dt_sim;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    
+    const newX = pos.x * cosA - pos.y * sinA;
+    const newY = pos.x * sinA + pos.y * cosA;
+    
+    const newVx = vel.x * cosA - vel.y * sinA;
+    const newVy = vel.x * sinA + vel.y * cosA;
+    
+    pos.x = newX;
+    pos.y = newY;
+    vel.x = newVx;
+    vel.y = newVy;
+    
+    trail.push({ x: pos.x, y: pos.y });
+    if (trail.length > 1500) trail.shift();
+  }
+
+  function drawField() {
+    const sp = 45; 
+    const offsetX = (cxc % sp);
+    const offsetY = (cyc % sp);
+    
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
+    
+    for (let x = offsetX; x < W; x += sp) {
+      for (let y = offsetY; y < H; y += sp) {
+        if (S.fieldDir === -1) {
+          const s = 4;
+          ctx.beginPath();
+          ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s);
+          ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
   }
-}
 
-function drawTrail() {
-  if (trail.length < 2) return;
-  ctx.beginPath();
-  const p0 = toScreen(trail[0]);
-  ctx.moveTo(p0.X, p0.Y);
-  for (let i = 1; i < trail.length; i++) {
-    const p = toScreen(trail[i]);
-    ctx.lineTo(p.X, p.Y);
+  function drawTrail() {
+    if (trail.length < 2) return;
+    ctx.beginPath();
+    const p0 = toScreen(trail[0]);
+    ctx.moveTo(p0.X, p0.Y);
+    for (let i = 1; i < trail.length; i++) {
+      const p = toScreen(trail[i]);
+      ctx.lineTo(p.X, p.Y);
+    }
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
-  ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([5, 5]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-}
 
-function drawArrow(x1, y1, x2, y2, color, width) {
-  const dx = x2 - x1, dy = y2 - y1;
-  const L = Math.hypot(dx, dy);
-  if (L < 1) return;
-  const ux = dx/L, uy = dy/L;
-  const head = Math.min(12, L*0.4);
+  function drawArrow(x1, y1, x2, y2, color, width) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const L = Math.hypot(dx, dy);
+    if (L < 1) return;
+    const ux = dx/L, uy = dy/L;
+    const head = Math.min(12, L*0.4);
 
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
 
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2 - ux*head*0.8, y2 - uy*head*0.8);
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2 - ux*head*0.8, y2 - uy*head*0.8);
+    ctx.stroke();
 
-  ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(x2 - ux*head - uy*head*0.5, y2 - uy*head + ux*head*0.5);
-  ctx.lineTo(x2 - ux*head + uy*head*0.5, y2 - uy*head - ux*head*0.5);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function drawVectorLabel(text, x, y, color) {
-  ctx.fillStyle = color;
-  ctx.font = 'bold 18px Arial';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(text, x, y);
-
-  const w = ctx.measureText(text).width;
-  const arrowY = y - 18;
-  const arrowStart = x - 1;
-  const arrowEnd = x + w + 1;
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(arrowStart, arrowY);
-  ctx.lineTo(arrowEnd - 4, arrowY);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(arrowEnd, arrowY);
-  ctx.lineTo(arrowEnd - 6, arrowY - 4);
-  ctx.lineTo(arrowEnd - 6, arrowY + 4);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function drawVectors() {
-  const pScreen = toScreen(pos);
-  
-  const vmag = Math.hypot(vel.x, vel.y);
-  if (vmag > 1e-6) {
-    const lenV = 20 + ((S.v - 0.5) / 2.5) * 50; 
-    const vx = (vel.x / vmag) * lenV;
-    const vy = -(vel.y / vmag) * lenV; 
-    drawArrow(pScreen.X, pScreen.Y, pScreen.X + vx, pScreen.Y + vy, '#2563eb', 3);
-    drawVectorLabel('v', pScreen.X + vx + 10, pScreen.Y + vy + 5, '#2563eb');
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - ux*head - uy*head*0.5, y2 - uy*head + ux*head*0.5);
+    ctx.lineTo(x2 - ux*head + uy*head*0.5, y2 - uy*head - ux*head*0.5);
+    ctx.closePath();
+    ctx.fill();
   }
-  
-  const dist = Math.hypot(pos.x, pos.y);
-  if (dist > 1e-6) {
-    const fMagSim = S.qMag * S.v * S.B; 
-    const logF = Math.log10(fMagSim);
-    const lenF = 30 + ((logF + 1.3) / 2.73) * 90;
+
+  function drawVectorLabel(text, x, y, color) {
+    ctx.fillStyle = color;
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, x, y);
+
+    const w = ctx.measureText(text).width;
+    const arrowY = y - 18;
+    const arrowStart = x - 1;
+    const arrowEnd = x + w + 1;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(arrowStart, arrowY);
+    ctx.lineTo(arrowEnd - 4, arrowY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(arrowEnd, arrowY);
+    ctx.lineTo(arrowEnd - 6, arrowY - 4);
+    ctx.lineTo(arrowEnd - 6, arrowY + 4);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawVectors() {
+    const pScreen = toScreen(pos);
     
-    const fx = -(pos.x / dist) * lenF;
-    const fy = (pos.y / dist) * lenF; 
-    drawArrow(pScreen.X, pScreen.Y, pScreen.X + fx, pScreen.Y + fy, '#dc2626', 3.5);
-    drawVectorLabel('F', pScreen.X + fx + 10, pScreen.Y + fy + 5, '#dc2626');
-  }
-}
-
-function drawParticle() {
-  const p = toScreen(pos);
-  
-  const g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, 18);
-  g.addColorStop(0, 'rgba(180, 83, 9, 0.35)');
-  g.addColorStop(1, 'rgba(180, 83, 9, 0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(p.X, p.Y, 18, 0, Math.PI*2); ctx.fill();
-
-  ctx.fillStyle = '#b45309';
-  ctx.beginPath(); ctx.arc(p.X, p.Y, 9, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#78350f';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (S.sign > 0) {
-    ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
-    ctx.moveTo(p.X, p.Y - 4); ctx.lineTo(p.X, p.Y + 4);
-  } else {
-    ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
-  }
-  ctx.stroke();
-}
-
-/* =========================================================
-   ACTUALIZACIÓN DE LA IMAGEN DE LA MANO
-   ========================================================= */
-function updateHandImage() {
-  if (!S.showHand) {
-    document.getElementById('handContainer').classList.remove('active');
-    return;
-  }
-  document.getElementById('handContainer').classList.add('active');
-
-  const img = document.getElementById('handImg');
-  const label = document.getElementById('handStatusLabel');
-  
-  const isBInto = S.fieldDir === -1; // Entrante
-  const isPositive = S.sign > 0;
-  
-  // 1. SELECCIÓN DE LA IMAGEN: Depende SOLO del campo
-  const newImgType = isBInto ? 'palma' : 'dorso';
-  
-  if (currentImgType !== newImgType) {
-    currentImgType = newImgType;
-    img.src = isBInto ? URL_MANO_PALMA : URL_MANO_DORSO;
+    const vmag = Math.hypot(vel.x, vel.y);
+    if (vmag > 1e-6) {
+      const lenV = 20 + ((S.v - 0.5) / 2.5) * 50; 
+      const vx = (vel.x / vmag) * lenV;
+      const vy = -(vel.y / vmag) * lenV; 
+      drawArrow(pScreen.X, pScreen.Y, pScreen.X + vx, pScreen.Y + vy, '#2563eb', 3);
+      drawVectorLabel('v', pScreen.X + vx + 10, pScreen.Y + vy + 5, '#2563eb');
+    }
+    
+    const dist = Math.hypot(pos.x, pos.y);
+    if (dist > 1e-6) {
+      const fMagSim = S.qMag * S.v * S.B; 
+      const logF = Math.log10(fMagSim);
+      const lenF = 30 + ((logF + 1.3) / 2.73) * 90;
+      
+      const fx = -(pos.x / dist) * lenF;
+      const fy = (pos.y / dist) * lenF; 
+      drawArrow(pScreen.X, pScreen.Y, pScreen.X + fx, pScreen.Y + fy, '#dc2626', 3.5);
+      drawVectorLabel('F', pScreen.X + fx + 10, pScreen.Y + fy + 5, '#dc2626');
+    }
   }
 
-  // 2. SELECCIÓN DEL TEXTO: Depende de carga Y campo
-  const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
-  
-  if (isFuerzaPalma) {
-    label.textContent = 'La F sale de la PALMA';
-    label.style.color = '#dc2626';
-  } else {
-    label.textContent = 'La F sale del DORSO';
-    label.style.color = '#1e40af';
+  function drawParticle() {
+    const p = toScreen(pos);
+    
+    const g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, 18);
+    g.addColorStop(0, 'rgba(180, 83, 9, 0.35)');
+    g.addColorStop(1, 'rgba(180, 83, 9, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(p.X, p.Y, 18, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath(); ctx.arc(p.X, p.Y, 9, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (S.sign > 0) {
+      ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
+      ctx.moveTo(p.X, p.Y - 4); ctx.lineTo(p.X, p.Y + 4);
+    } else {
+      ctx.moveTo(p.X - 4, p.Y); ctx.lineTo(p.X + 4, p.Y);
+    }
+    ctx.stroke();
   }
 
-  // 3. ROTACIÓN
-  const vAngle = Math.atan2(-vel.y, vel.x); 
-  let offset = isBInto ? OFFSET_PALMA : OFFSET_DORSO;
-  const degrees = (vAngle * 180 / Math.PI) + offset;
-  
-  img.style.transform = `rotate(${degrees}deg)`;
-}
+  function updateHandImage() {
+    const container = document.getElementById('handContainer');
+    const img = document.getElementById('handImg');
+    const label = document.getElementById('handStatusLabel');
 
-function draw() {
-  ctx.clearRect(0, 0, W, H);
-  drawField();
-  drawTrail();
-  drawVectors();
-  drawParticle();
-  updateHandImage();
-}
+    if (!S.showHand) {
+      if(container) container.classList.remove('active');
+      return;
+    }
+    if(container) container.classList.add('active');
 
-let last = performance.now();
-function loop(now) {
-  requestAnimationFrame(loop);
-  const dtReal = Math.min((now - last) / 1000, 0.05);
-  last = now;
-  
-  if (S.running) simulate(dtReal);
-  draw();
-}
+    const isBInto = S.fieldDir === -1; 
+    const isPositive = S.sign > 0;
+    
+    // 1. Imagen según el campo
+    const newImgType = isBInto ? 'palma' : 'dorso';
+    if (currentImgType !== newImgType && img) {
+      currentImgType = newImgType;
+      img.src = isBInto ? URL_MANO_PALMA : URL_MANO_DORSO;
+    }
 
-/* =========================================================
-   INTERFAZ
-   ========================================================= */
+    // 2. Texto según campo y carga
+    const isFuerzaPalma = (isBInto && isPositive) || (!isBInto && !isPositive);
+    if (label) {
+      if (isFuerzaPalma) {
+        label.textContent = 'La F sale de la PALMA';
+        label.style.color = '#dc2626';
+      } else {
+        label.textContent = 'La F sale del DORSO';
+        label.style.color = '#1e40af';
+      }
+    }
 
-function updateReadouts() {
-  const q_SI = S.qMag * 1e-6;
-  const v_SI = S.v * 1e5;
-  const B_SI = S.B;
-  const m_SI = S.mass * 1e-27;
-  
-  const F_SI = q_SI * v_SI * B_SI;
-  const T_SI = (2 * Math.PI * m_SI) / (q_SI * B_SI);
-  const r_SI = (m_SI * v_SI) / (q_SI * B_SI);
-  
-  document.getElementById('rVal').textContent = r_SI.toExponential(2);
-  document.getElementById('tVal').textContent = T_SI.toExponential(2);
-  document.getElementById('fVal').textContent = F_SI.toExponential(2);
-}
+    // 3. Rotación
+    if (img) {
+      const vAngle = Math.atan2(-vel.y, vel.x); 
+      let offset = isBInto ? OFFSET_PALMA : OFFSET_DORSO;
+      const degrees = (vAngle * 180 / Math.PI) + offset;
+      img.style.transform = `rotate(${degrees}deg)`;
+    }
+  }
 
-function bindSlider(sliderId, numId, stateKey, callback = null) {
-  const slider = document.getElementById(sliderId);
-  const num = document.getElementById(numId);
-  
-  const update = (val) => {
-    val = parseFloat(val);
-    if (isNaN(val)) val = parseFloat(slider.min);
-    val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
-    S[stateKey] = val;
-    slider.value = val;
-    num.value = val.toFixed(2).replace(/\.?0+$/, "");
-    if (callback) callback();
-  };
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawField();
+    drawTrail();
+    drawVectors();
+    drawParticle();
+    updateHandImage();
+  }
 
-  slider.addEventListener('input', e => update(e.target.value));
-  num.addEventListener('change', e => update(e.target.value));
-}
+  let last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dtReal = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    
+    if (S.running) simulate(dtReal);
+    draw();
+  }
 
-bindSlider('qSlider', 'qNum', 'qMag', () => { resizeMain(); resetParticle(); updateReadouts(); });
-bindSlider('bSlider', 'bNum', 'B', () => { resizeMain(); resetParticle(); updateReadouts(); });
-bindSlider('mSlider', 'mNum', 'mass', () => { resizeMain(); resetParticle(); updateReadouts(); });
-bindSlider('vSlider', 'vNum', 'v', () => { resizeMain(); resetParticle(); updateReadouts(); });
-bindSlider('speedSlider', 'speedNum', 'simSpeed');
+  function updateReadouts() {
+    const q_SI = S.qMag * 1e-6;
+    const v_SI = S.v * 1e5;
+    const B_SI = S.B;
+    const m_SI = S.mass * 1e-27;
+    
+    const F_SI = q_SI * v_SI * B_SI;
+    const T_SI = (2 * Math.PI * m_SI) / (q_SI * B_SI);
+    const r_SI = (m_SI * v_SI) / (q_SI * B_SI);
+    
+    const elR = document.getElementById('rVal');
+    const elT = document.getElementById('tVal');
+    const elF = document.getElementById('fVal');
+    if(elR) elR.textContent = r_SI.toExponential(2);
+    if(elT) elT.textContent = T_SI.toExponential(2);
+    if(elF) elF.textContent = F_SI.toExponential(2);
+  }
 
-document.getElementById('signBtn').addEventListener('click', (e) => {
-  S.sign *= -1;
-  e.target.textContent = `Signo de la carga: ${S.sign > 0 ? '(+)' : '(−)'}`;
-  e.target.classList.toggle('active', S.sign > 0);
-  resetParticle();
-});
+  function bindSlider(sliderId, numId, stateKey, callback = null) {
+    const slider = document.getElementById(sliderId);
+    const num = document.getElementById(numId);
+    if(!slider || !num) return;
 
-document.getElementById('fieldDirBtn').addEventListener('click', (e) => {
-  S.fieldDir *= -1;
-  e.target.textContent = `Campo B: ${S.fieldDir === -1 ? 'Entrante (×)' : 'Saliente (·)'}`;
-  resetParticle();
-});
+    const update = (val) => {
+      val = parseFloat(val);
+      if (isNaN(val)) val = parseFloat(slider.min);
+      val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
+      S[stateKey] = val;
+      slider.value = val;
+      num.value = val.toFixed(2).replace(/\.?0+$/, "");
+      if (callback) callback();
+    };
 
-document.getElementById('ckHand').addEventListener('change', (e) => {
-  S.showHand = e.target.checked;
-});
+    slider.addEventListener('input', e => update(e.target.value));
+    num.addEventListener('change', e => update(e.target.value));
+  }
 
-document.getElementById('pauseBtn').addEventListener('click', (e) => {
-  S.running = !S.running;
-  e.target.textContent = S.running ? '⏸ Pausar simulación' : '▶ Reanudar simulación';
-  e.target.classList.toggle('active', !S.running);
-});
+  bindSlider('qSlider', 'qNum', 'qMag', () => { resizeMain(); resetParticle(); updateReadouts(); });
+  bindSlider('bSlider', 'bNum', 'B', () => { resizeMain(); resetParticle(); updateReadouts(); });
+  bindSlider('mSlider', 'mNum', 'mass', () => { resizeMain(); resetParticle(); updateReadouts(); });
+  bindSlider('vSlider', 'vNum', 'v', () => { resizeMain(); resetParticle(); updateReadouts(); });
+  bindSlider('speedSlider', 'speedNum', 'simSpeed');
 
-document.getElementById('resetBtn').addEventListener('click', () => {
-  resetParticle();
-});
+  document.getElementById('signBtn')?.addEventListener('click', (e) => {
+    S.sign *= -1;
+    e.target.textContent = `Signo de la carga: ${S.sign > 0 ? '(+)' : '(−)'}`;
+    e.target.classList.toggle('active', S.sign > 0);
+    resetParticle();
+  });
 
-window.addEventListener('resize', () => {
+  document.getElementById('fieldDirBtn')?.addEventListener('click', (e) => {
+    S.fieldDir *= -1;
+    e.target.textContent = `Campo B: ${S.fieldDir === -1 ? 'Entrante (×)' : 'Saliente (·)'}`;
+    resetParticle();
+  });
+
+  document.getElementById('ckHand')?.addEventListener('change', (e) => {
+    S.showHand = e.target.checked;
+  });
+
+  document.getElementById('pauseBtn')?.addEventListener('click', (e) => {
+    S.running = !S.running;
+    e.target.textContent = S.running ? '⏸ Pausar simulación' : '▶ Reanudar simulación';
+    e.target.classList.toggle('active', !S.running);
+  });
+
+  document.getElementById('resetBtn')?.addEventListener('click', () => {
+    resetParticle();
+  });
+
+  window.addEventListener('resize', () => {
+    resizeMain();
+    resetParticle();
+    updateReadouts();
+  });
+
+  /* Arranque */
   resizeMain();
   resetParticle();
   updateReadouts();
+  requestAnimationFrame(loop);
 });
-
-/* Arranque */
-resizeMain();
-resetParticle();
-updateReadouts();
-requestAnimationFrame(loop);
 </script>
 </body>
 </html>
