@@ -232,19 +232,15 @@
 <script>
 window.addEventListener('load', function() {
   // =========================================================
-  // ¡ATENCIÓN! NOMBRES EXACTOS DE TUS ARCHIVOS
+  // Nombres de tus archivos
   // =========================================================
   const URL_MANO_PALMA = "mano_palma.png"; 
   const URL_MANO_DORSO = "mano_dorso.png"; 
-
-  // Ajuste de rotación (si alguna foto gira mal, cambialos por 0, 90 o 270)
-  const OFFSET_PALMA = 180; 
-  const OFFSET_DORSO = 180; 
   // =========================================================
 
   const S = {
-    qMag: 1.3, sign: -1, v: 0.9, B: 0.5, mass: 2.0,
-    fieldDir: -1, running: true, simSpeed: 0.2, showHand: true
+    qMag: 1.3, sign: 1, v: 0.9, B: 0.5, mass: 2.0,
+    fieldDir: 1, running: true, simSpeed: 0.2, showHand: true
   };
 
   let pos = { x: 0, y: 0 };
@@ -484,15 +480,19 @@ window.addEventListener('load', function() {
       }
     }
 
-    // 3. ROTACIÓN Y VOLTEO
+    // 3. ROTACIÓN Y VOLTEO DINÁMICO
     if (img) {
-      const vAngle = Math.atan2(-vel.y, vel.x); 
-      let offset = isBInto ? OFFSET_PALMA : OFFSET_DORSO;
-      const degrees = (vAngle * 180 / Math.PI) + offset;
+      // Calculamos el ángulo exacto de la velocidad en la pantalla
+      const vAngle = Math.atan2(-vel.y, vel.x) * 180 / Math.PI; 
       
-      let transformStyle = `rotate(${degrees}deg)`;
+      // Ajuste base: Asumimos que en la foto original el pulgar apunta hacia ARRIBA.
+      // Si apunta hacia ARRIBA, restamos 90 grados para alinearlo con los 0 grados de la pantalla.
+      let totalRotation = vAngle - 90; 
       
-      // Voltear verticalmente si el campo es saliente (puntos) y la carga es negativa
+      let transformStyle = `rotate(${totalRotation}deg)`;
+      
+      // Si el campo es saliente (puntos) y la carga es negativa,
+      // le damos vuelta la mano (efecto espejo vertical) para que la fuerza salga del otro lado.
       if (!isBInto && !isPositive) {
         transformStyle += ' scaleY(-1)';
       }
